@@ -34,6 +34,8 @@ import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.inputmethod.EditorInfo;
+import android.view.inputmethod.InputConnection;
+import android.view.inputmethod.InputConnectionWrapper;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.EditText;
 
@@ -550,6 +552,12 @@ public class ReactEditText extends EditText {
     }
   }
 
+  @Override
+  public InputConnection onCreateInputConnection(EditorInfo outAttrs) {
+    return new InternalInputConnection(super.onCreateInputConnection(outAttrs),
+            true);
+  }
+
   public void setBorderWidth(int position, float width) {
     getOrCreateReactViewBackground().setBorderWidth(position, width);
   }
@@ -618,6 +626,37 @@ public class ReactEditText extends EditText {
         }
       }
     }
+  }
+
+  private class InternalInputConnection extends InputConnectionWrapper {
+
+    public InternalInputConnection(InputConnection target, boolean mutable) {
+      super(target, mutable);
+    }
+
+    @Override
+    public boolean sendKeyEvent(KeyEvent event) {
+      if (event.getAction() == KeyEvent.ACTION_DOWN
+              && event.getKeyCode() == KeyEvent.KEYCODE_DEL) {
+        // Un-comment if you wish to cancel the backspace:
+        // return false;
+      }
+      return super.sendKeyEvent(event);
+    }
+
+
+    @Override
+    public boolean deleteSurroundingText(int beforeLength, int afterLength) {
+      // magic: in latest Android, deleteSurroundingText(1, 0) will be called for backspace
+      if (beforeLength == 1 && afterLength == 0) {
+        // backspace
+        return sendKeyEvent(new KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_DEL))
+                && sendKeyEvent(new KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_DEL));
+      }
+
+      return super.deleteSurroundingText(beforeLength, afterLength);
+    }
+
   }
 
   /*
