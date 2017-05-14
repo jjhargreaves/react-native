@@ -328,6 +328,12 @@ static inline BOOL isRectInvalid(CGRect rect) {
   NSHashTable *_scrollListeners;
 }
 
+- (void)setValue:(float)value
+{
+  // TODO: handle Y direction
+  [[self scrollView] setContentOffset: CGPointMake(value, 0)];
+}
+
 - (instancetype)initWithEventDispatcher:(RCTEventDispatcher *)eventDispatcher
 {
   RCTAssertParam(eventDispatcher);

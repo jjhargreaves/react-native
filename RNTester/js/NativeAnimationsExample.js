@@ -172,18 +172,19 @@ class EventExample extends React.Component {
     });
     return (
       <View>
-        <Animated.View
-          style={[
-            styles.block,
-            {
-              opacity,
-            }
-          ]}
-        />
         <Animated.ScrollView
           horizontal
           style={{ height: 100, marginTop: 16 }}
-          scrollEventThrottle={16}
+          value={this.state.scrollX}
+        >
+          <View style={{ width: 600, backgroundColor: '#eee', justifyContent: 'center' }}>
+            <Text>Scroll me!</Text>
+          </View>
+        </Animated.ScrollView>
+        <Animated.ScrollView
+          horizontal
+          style={{ height: 100, marginTop: 16 }}
+          scrollEventThrottle={1}
           onScroll={
             Animated.event([{
               nativeEvent: { contentOffset: { x: this.state.scrollX } }

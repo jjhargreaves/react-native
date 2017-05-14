@@ -113,6 +113,14 @@ const ScrollView = React.createClass({
      * @platform ios
      */
     alwaysBounceHorizontal: PropTypes.bool,
+
+    /**
+     * POC: for driving scrollView contentOffset. 
+     * Keyword 'value' is on whitelist of allowed properties 
+     * available for use with 'useNativeDriver': 
+     * RCTNativeAnimatedNodesManager.m#L62
+     */
+    value: PropTypes.number,
     /**
      * When true, the scroll view bounces vertically when it reaches the end
      * even if the content is smaller than the scroll view itself. The default
