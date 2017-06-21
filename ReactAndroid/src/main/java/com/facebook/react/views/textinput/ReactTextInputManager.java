@@ -654,7 +654,12 @@ public class ReactTextInputManager extends BaseViewManager<ReactEditText, Layout
     return key;
   }
 
-  private class ReactTextInputTextWatcher implements TextWatcher {
+  public interface IReactTextInputTextWatcher extends TextWatcher
+  {
+    void emptyDelete();
+  }
+
+  private class ReactTextInputTextWatcher implements IReactTextInputTextWatcher {
 
     private EventDispatcher mEventDispatcher;
     private ReactEditText mEditText;
@@ -690,12 +695,26 @@ public class ReactTextInputManager extends BaseViewManager<ReactEditText, Layout
         return;
       }
 
+      dispatchEvents(s.toString(), oldText, newText, start, before);
+    }
+
+    @Override
+    public void afterTextChanged(Editable s) {
+    }
+
+    @Override
+    public void emptyDelete() {
+      dispatchEvents("", "", "", 0, 0);
+    }
+
+    private void dispatchEvents(String s, String oldText, String newText, int start, int before)
+    {
       // The event that contains the event counter and updates it must be sent first.
       // TODO: t7936714 merge these events
       mEventDispatcher.dispatchEvent(
           new ReactTextChangedEvent(
               mEditText.getId(),
-              s.toString(),
+              s,
               mEditText.incrementAndGetEventCounter()));
 
       mEventDispatcher.dispatchEvent(
@@ -706,10 +725,6 @@ public class ReactTextInputManager extends BaseViewManager<ReactEditText, Layout
               start,
               start + before,
               getOnKeyPress(newText)));
-    }
-
-    @Override
-    public void afterTextChanged(Editable s) {
     }
   }
 

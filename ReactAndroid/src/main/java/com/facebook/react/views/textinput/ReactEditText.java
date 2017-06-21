@@ -73,7 +73,7 @@ public class ReactEditText extends EditText {
   private int mDefaultGravityVertical;
   private int mNativeEventCount;
   private int mMostRecentEventCount;
-  private @Nullable ArrayList<TextWatcher> mListeners;
+  private @Nullable ArrayList<ReactTextInputManager.IReactTextInputTextWatcher> mListeners;
   private @Nullable TextWatcherDelegator mTextWatcherDelegator;
   private int mStagedInputType;
   private boolean mContainsImages;
@@ -213,8 +213,7 @@ public class ReactEditText extends EditText {
     return focused;
   }
 
-  @Override
-  public void addTextChangedListener(TextWatcher watcher) {
+  public void addTextChangedListener(ReactTextInputManager.IReactTextInputTextWatcher watcher) {
     if (mListeners == null) {
       mListeners = new ArrayList<>();
       super.addTextChangedListener(getTextWatcherDelegator());
@@ -667,7 +666,11 @@ public class ReactEditText extends EditText {
       // The rest of the cases we will deal with with TextWatcher
       if (beforeLength == 1 && afterLength == 0 && ReactEditText.this.getSelectionStart() == 0)
       {
-        //TODO: fire event to JS
+        if (!mIsSettingTextFromJS && mListeners != null) {
+          for (ReactTextInputManager.IReactTextInputTextWatcher listener : mListeners) {
+            listener.emptyDelete();
+          }
+        }
       }
 
       return super.deleteSurroundingText(beforeLength, afterLength);
