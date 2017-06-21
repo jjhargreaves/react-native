@@ -636,6 +636,24 @@ public class ReactTextInputManager extends BaseViewManager<ReactEditText, Layout
     view.setStagedInputType((view.getStagedInputType() & ~flagsToUnset) | flagsToSet);
   }
 
+  private static String getOnKeyPress(String key) {
+    if (key.length() == 0) {
+      key = "Backspace";
+    } else {
+      switch (key.charAt(0)) {
+        case '\t':
+          key = "Tab";
+          break;
+        case '\n':
+          key = "Enter";
+          break;
+        default:
+          break;
+      }
+    }
+    return key;
+  }
+
   private class ReactTextInputTextWatcher implements TextWatcher {
 
     private EventDispatcher mEventDispatcher;
@@ -686,7 +704,8 @@ public class ReactTextInputManager extends BaseViewManager<ReactEditText, Layout
               newText,
               oldText,
               start,
-              start + before));
+              start + before,
+              getOnKeyPress(newText)));
     }
 
     @Override

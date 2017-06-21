@@ -35,6 +35,8 @@ import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.inputmethod.EditorInfo;
+import android.view.inputmethod.InputConnection;
+import android.view.inputmethod.InputConnectionWrapper;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.EditText;
 
@@ -128,6 +130,12 @@ public class ReactEditText extends EditText {
     } else {
       return false;
     }
+  }
+
+  @Override
+  public InputConnection onCreateInputConnection(EditorInfo outAttrs) {
+    return new InternalInputConnection(super.onCreateInputConnection(outAttrs),
+            true);
   }
 
   @Override
@@ -642,6 +650,27 @@ public class ReactEditText extends EditText {
           listener.afterTextChanged(s);
         }
       }
+    }
+  }
+
+  private class InternalInputConnection extends InputConnectionWrapper {
+
+    public InternalInputConnection(InputConnection target, boolean mutable) {
+      super(target, mutable);
+    }
+
+    @Override
+    public boolean deleteSurroundingText(int beforeLength, int afterLength) {
+      // deleteSurroundingText(1, 0) will be called for backspace for 'committed' text
+      // We want to catch the case whereby TextWatcher won't work. I.E. an empty textbox,
+      // or cursor at is at the beginning of EditText and no text deleted.
+      // The rest of the cases we will deal with with TextWatcher
+      if (beforeLength == 1 && afterLength == 0 && ReactEditText.this.getSelectionStart() == 0)
+      {
+        //TODO: fire event to JS
+      }
+
+      return super.deleteSurroundingText(beforeLength, afterLength);
     }
   }
 
