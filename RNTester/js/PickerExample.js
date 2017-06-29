@@ -123,7 +123,6 @@ class PickerExample extends React.Component {
 
 var styles = StyleSheet.create({
   picker: {
-    width: 100,
   },
 });
 
