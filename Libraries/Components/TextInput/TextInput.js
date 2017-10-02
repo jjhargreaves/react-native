@@ -918,23 +918,6 @@ const TextInput = createReactClass({
      * suppresses an error when upgrading Flow's support for React. To see the
      * error delete this comment and run Flow. */
     this.props.onTextInput && this.props.onTextInput(event);
-    // Android sends a textInput event for which iOS sends
-    // multiple events of different types sequentially. 
-    // To maintain same external API for iOS and Android
-    // we pull the key out of the onTextInput event
-    // for the onKeyPress input prop
-    if (Platform.OS === 'android') {
-      if (event.nativeEvent && event.nativeEvent.key && this.props.onKeyPress) {
-        // TODO copy top level event properties: 
-        // Using spread operator is resulting in error: 'One of the sources for assign
-        // has enumerable key on the prototype chain
-        let convenienceEvent = {
-          // ...event,
-          nativeEvent: { key: event.nativeEvent.key }
-        };
-        this.props.onKeyPress(convenienceEvent);
-      }
-    }
   },
 
   _onScroll: function(event: Event) {

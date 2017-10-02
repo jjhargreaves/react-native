@@ -24,7 +24,6 @@ public class ReactTextInputEvent extends Event<ReactTextInputEvent> {
 
   private String mText;
   private String mPreviousText;
-  private String mKey;
   private int mRangeStart;
   private int mRangeEnd;
 
@@ -33,14 +32,12 @@ public class ReactTextInputEvent extends Event<ReactTextInputEvent> {
       String text,
       String previousText,
       int rangeStart,
-      int rangeEnd,
-      String key) {
+      int rangeEnd) {
     super(viewId);
     mText = text;
     mPreviousText = previousText;
     mRangeStart = rangeStart;
     mRangeEnd = rangeEnd;
-    mKey = key;
   }
 
   @Override
@@ -70,7 +67,6 @@ public class ReactTextInputEvent extends Event<ReactTextInputEvent> {
     eventData.putMap("range", range);
 
     eventData.putInt("target", getViewTag());
-    eventData.putString("key", mKey);
     return eventData;
   }
 }

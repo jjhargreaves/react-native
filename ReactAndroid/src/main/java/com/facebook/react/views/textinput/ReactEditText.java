@@ -68,7 +68,7 @@ public class ReactEditText extends EditText {
   private int mDefaultGravityVertical;
   private int mNativeEventCount;
   private int mMostRecentEventCount;
-  private @Nullable ArrayList<ReactTextInputManager.IReactTextInputTextWatcher> mListeners;
+  private @Nullable ArrayList<TextWatcher> mListeners;
   private @Nullable TextWatcherDelegator mTextWatcherDelegator;
   private int mStagedInputType;
   private boolean mContainsImages;
@@ -80,12 +80,19 @@ public class ReactEditText extends EditText {
   private @Nullable ScrollWatcher mScrollWatcher;
   private final InternalKeyListener mKeyListener;
   private boolean mDetectScrollMovement = false;
+  private final InputConnectionWrapper mInputConnectionWrapper;
+  private boolean mIsContextMenuEdit = false;
+  private int mCurrentSelectionStart = 0;
+  private int mCurrentSelectionEnd = 0;
+  private int mPreviousSelectionStart = 0;
+  private int mPreviousSelectionEnd = 0;
+  private boolean mEditIsCommit = false;
 
   private ReactViewBackgroundManager mReactBackgroundManager;
 
   private static final KeyListener sKeyListener = QwertyKeyListener.getInstanceForFullKeyboard();
 
-  public ReactEditText(Context context) {
+  public ReactEditText(Context context, InputConnectionWrapper inputConnectionWrapper) {
     super(context);
     setFocusableInTouchMode(false);
 
@@ -106,6 +113,7 @@ public class ReactEditText extends EditText {
     mStagedInputType = getInputType();
     mKeyListener = new InternalKeyListener();
     mScrollWatcher = null;
+    mInputConnectionWrapper = inputConnectionWrapper;
   }
 
   // After the text changes inside an EditText, TextView checks if a layout() has been requested.
@@ -182,12 +190,12 @@ public class ReactEditText extends EditText {
 
   @Override
   public InputConnection onCreateInputConnection(EditorInfo outAttrs) {
-    InputConnection connection = super.onCreateInputConnection(outAttrs);
+    mInputConnectionWrapper.setTarget(super.onCreateInputConnection(outAttrs));
     if (isMultiline() && getBlurOnSubmit()) {
       // Remove IME_FLAG_NO_ENTER_ACTION to keep the original IME_OPTION
       outAttrs.imeOptions &= ~EditorInfo.IME_FLAG_NO_ENTER_ACTION;
     }
-    return connection;
+    return mInputConnectionWrapper;
   }
 
   @Override
@@ -195,6 +203,19 @@ public class ReactEditText extends EditText {
     setFocusableInTouchMode(false);
     super.clearFocus();
     hideSoftKeyboard();
+  }
+
+  @Override
+  public boolean onTextContextMenuItem(int id) {
+    mIsContextMenuEdit = true;
+    // The call to super here will potentially result in
+    // changes to the content of the TextInput as a result of
+    // cut/paste actions. We use this variable so we know if
+    // any changes occur as a result of these actions so that we can
+    // ignore them for the TextInput event 'onKeyPress'
+    boolean consumed = super.onTextContextMenuItem(id);
+    mIsContextMenuEdit = false;
+    return consumed;
   }
 
   @Override
@@ -213,7 +234,7 @@ public class ReactEditText extends EditText {
     return focused;
   }
 
-  public void addTextChangedListener(ReactTextInputManager.IReactTextInputTextWatcher watcher) {
+  public void addTextChangedListener(TextWatcher watcher) {
     if (mListeners == null) {
       mListeners = new ArrayList<>();
       super.addTextChangedListener(getTextWatcherDelegator());
@@ -255,6 +276,10 @@ public class ReactEditText extends EditText {
   @Override
   protected void onSelectionChanged(int selStart, int selEnd) {
     super.onSelectionChanged(selStart, selEnd);
+    mPreviousSelectionStart = mCurrentSelectionStart;
+    mPreviousSelectionEnd = mCurrentSelectionEnd;
+    mCurrentSelectionStart = selStart;
+    mCurrentSelectionEnd = selEnd;
     if (mSelectionWatcher != null && hasFocus()) {
       mSelectionWatcher.onSelectionChanged(selStart, selEnd);
     }
@@ -300,6 +325,14 @@ public class ReactEditText extends EditText {
     updateImeOptions();
   }
 
+  public void setEditIsCommit(boolean editIsCommit) {
+    mEditIsCommit = editIsCommit;
+  }
+
+  public boolean getEditIsCommit() {
+    return mEditIsCommit;
+  }
+
   public String getReturnKeyType() {
     return mReturnKeyType;
   }
@@ -318,6 +351,14 @@ public class ReactEditText extends EditText {
     }
   }
 
+  public int getPreviousSelectionStart() {
+      return mPreviousSelectionStart;
+  }
+
+  public int getPreviousSelectionEnd() {
+    return mPreviousSelectionEnd;
+  }
+
   @Override
   public void setInputType(int type) {
     Typeface tf = super.getTypeface();
@@ -331,6 +372,10 @@ public class ReactEditText extends EditText {
     // accept all input from it
     mKeyListener.setInputType(type);
     setKeyListener(mKeyListener);
+  }
+
+  public boolean isContextMenuEdit() {
+    return mIsContextMenuEdit;
   }
 
   // VisibleForTesting from {@link TextInputEventsTestCase}.
@@ -633,31 +678,6 @@ public class ReactEditText extends EditText {
           listener.afterTextChanged(s);
         }
       }
-    }
-  }
-
-  private class InternalInputConnection extends InputConnectionWrapper {
-
-    public InternalInputConnection(InputConnection target, boolean mutable) {
-      super(target, mutable);
-    }
-
-    @Override
-    public boolean deleteSurroundingText(int beforeLength, int afterLength) {
-      // deleteSurroundingText(1, 0) will be called for backspace for 'committed' text
-      // We want to catch the case whereby TextWatcher won't work. I.E. an empty textbox,
-      // or cursor at is at the beginning of EditText and no text deleted.
-      // The rest of the cases we will deal with with TextWatcher
-      if (beforeLength == 1 && afterLength == 0 && ReactEditText.this.getSelectionStart() == 0)
-      {
-        if (!mIsSettingTextFromJS && mListeners != null) {
-          for (ReactTextInputManager.IReactTextInputTextWatcher listener : mListeners) {
-            listener.emptyDelete();
-          }
-        }
-      }
-
-      return super.deleteSurroundingText(beforeLength, afterLength);
     }
   }
 

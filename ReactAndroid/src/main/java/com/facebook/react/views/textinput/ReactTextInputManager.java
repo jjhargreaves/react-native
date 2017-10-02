@@ -22,7 +22,10 @@ import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.KeyEvent;
 import android.view.View;
+import android.view.inputmethod.CompletionInfo;
 import android.view.inputmethod.EditorInfo;
+import android.view.inputmethod.InputConnection;
+import android.view.inputmethod.InputConnectionWrapper;
 import android.widget.TextView;
 import com.facebook.infer.annotation.Assertions;
 import com.facebook.react.bridge.JSApplicationIllegalArgumentException;
@@ -87,7 +90,9 @@ public class ReactTextInputManager extends BaseViewManager<ReactEditText, Layout
 
   @Override
   public ReactEditText createViewInstance(ThemedReactContext context) {
-    ReactEditText editText = new ReactEditText(context);
+    ReactInputConnectionWrapper inputConnectionWrapper = new ReactInputConnectionWrapper(null, true, context);
+    ReactEditText editText = new ReactEditText(context, inputConnectionWrapper);
+    inputConnectionWrapper.setEditText(editText);
     int inputType = editText.getInputType();
     editText.setInputType(inputType & (~InputType.TYPE_TEXT_FLAG_MULTI_LINE));
     editText.setReturnKeyType("done");
@@ -137,6 +142,11 @@ public class ReactTextInputManager extends BaseViewManager<ReactEditText, Layout
             MapBuilder.of(
                 "phasedRegistrationNames",
                 MapBuilder.of("bubbled", "onBlur", "captured", "onBlurCapture")))
+        .put(
+            "topKeyPress",
+            MapBuilder.of(
+              "phasedRegistrationNames",
+              MapBuilder.of("bubbled", "onKeyPress", "captured", "onKeyPressCapture")))
         .build();
   }
 
@@ -640,34 +650,14 @@ public class ReactTextInputManager extends BaseViewManager<ReactEditText, Layout
     view.setStagedInputType((view.getStagedInputType() & ~flagsToUnset) | flagsToSet);
   }
 
-  private static String getOnKeyPress(String key) {
-    if (key.length() == 0) {
-      key = "Backspace";
-    } else {
-      switch (key.charAt(0)) {
-        case '\t':
-          key = "Tab";
-          break;
-        case '\n':
-          key = "Enter";
-          break;
-        default:
-          break;
-      }
-    }
-    return key;
-  }
-
-  public interface IReactTextInputTextWatcher extends TextWatcher
-  {
-    void emptyDelete();
-  }
-
-  private class ReactTextInputTextWatcher implements IReactTextInputTextWatcher {
+  private class ReactTextInputTextWatcher implements TextWatcher {
 
     private EventDispatcher mEventDispatcher;
     private ReactEditText mEditText;
     private String mPreviousText;
+    private int mPreviousSelectionLength = 0;
+    public static final String BACKSPACE_STRING_VALUE = "Backspace";
+    public static final String ENTER_STRING_VALUE = "Enter";
 
     public ReactTextInputTextWatcher(
         final ReactContext reactContext,
@@ -681,6 +671,7 @@ public class ReactTextInputManager extends BaseViewManager<ReactEditText, Layout
     public void beforeTextChanged(CharSequence s, int start, int count, int after) {
       // Incoming charSequence gets mutated before onTextChanged() is invoked
       mPreviousText = s.toString();
+      mPreviousSelectionLength = mEditText.getPreviousSelectionEnd() - mEditText.getPreviousSelectionStart();
     }
 
     @Override
@@ -699,19 +690,14 @@ public class ReactTextInputManager extends BaseViewManager<ReactEditText, Layout
         return;
       }
 
-      dispatchEvents(s.toString(), oldText, newText, start, before);
+      dispatchEvents(s.toString(), oldText, newText, start, before, count);
     }
 
     @Override
     public void afterTextChanged(Editable s) {
     }
 
-    @Override
-    public void emptyDelete() {
-      dispatchEvents("", "", "", 0, 0);
-    }
-
-    private void dispatchEvents(String s, String oldText, String newText, int start, int before)
+    private void dispatchEvents(String s, String oldText, String newText, int start, int before, int count)
     {
       // The event that contains the event counter and updates it must be sent first.
       // TODO: t7936714 merge these events
@@ -727,8 +713,39 @@ public class ReactTextInputManager extends BaseViewManager<ReactEditText, Layout
               newText,
               oldText,
               start,
-              start + before,
-              getOnKeyPress(newText)));
+              start + before));
+
+      // Ignore changes such as cut & paste
+      if (!mEditText.isContextMenuEdit()) {
+        String key = null;
+        if (mEditText.getEditIsCommit() && before <= count) {
+          if (count == 1) {
+            key = String.valueOf(s.charAt(start));
+          } else {
+            key = s.substring(start, start + count);
+          }
+        } else if (before > count) {
+          // If there was no selection before the edit or there was, but the length after the edit
+          // is minus the length of the selection, we say it's a delete
+          if (mPreviousSelectionLength == 0 || (oldText.length() - mPreviousSelectionLength) == newText.length() ) {
+            key = BACKSPACE_STRING_VALUE;
+          } else {
+            key = String.valueOf(s.charAt(start));
+          }
+
+        } else {
+          final int index = start + before;
+          if (index < s.length()) {
+            key = String.valueOf(s.charAt(index));
+            if (key == "\n") {
+              key = ENTER_STRING_VALUE;
+            }
+          }
+        }
+        if (key != null) {
+          mEventDispatcher.dispatchEvent(new ReactTextInputKeyPressEvent(mEditText.getId(), key));
+        }
+      }
     }
   }
 
@@ -865,6 +882,63 @@ public class ReactTextInputManager extends BaseViewManager<ReactEditText, Layout
         mPreviousSelectionStart = start;
         mPreviousSelectionEnd = end;
       }
+    }
+  }
+
+  private class ReactInputConnectionWrapper extends InputConnectionWrapper {
+    private ReactEditText mEditText;
+    private EventDispatcher mEventDispatcher;
+
+    public ReactInputConnectionWrapper(
+      InputConnection target,
+      boolean mutable,
+      final ReactContext reactContext) {
+      super(target, mutable);
+      mEventDispatcher = reactContext.getNativeModule(UIManagerModule.class).getEventDispatcher();
+    }
+
+    public void setEditText(final ReactEditText editText) {
+      mEditText = editText;
+    }
+
+    private void dispatchBackspaceEvent() {
+      // Capture 'backspaces' where no text is deleted if no text is selected
+      // and cursor at beginning of input
+      if (mEditText.getSelectionStart() == 0 && mEditText.getSelectionEnd() == 0 && !mEditText.isContextMenuEdit()) {
+                mEventDispatcher.dispatchEvent(
+          new ReactTextInputKeyPressEvent(
+            mEditText.getId(), ReactTextInputTextWatcher.BACKSPACE_STRING_VALUE));
+      }
+    }
+
+    @Override
+    public boolean sendKeyEvent(KeyEvent event) {
+      if(event.getAction() == KeyEvent.ACTION_DOWN) {
+        dispatchBackspaceEvent();
+      }
+      return super.sendKeyEvent(event);
+    }
+
+    @Override
+    public boolean deleteSurroundingText(int beforeLength, int afterLength) {
+      dispatchBackspaceEvent();
+      return super.deleteSurroundingText(beforeLength, afterLength);
+    }
+
+    @Override
+    public boolean commitCompletion(CompletionInfo text) {
+      mEditText.setEditIsCommit(true);
+      boolean consumed = super.commitCompletion(text);
+      mEditText.setEditIsCommit(false);
+      return consumed;
+    }
+
+    @Override
+    public boolean commitText(CharSequence text, int newCursorPosition) {
+      mEditText.setEditIsCommit(true);
+      boolean consumed = super.commitText(text, newCursorPosition);
+      mEditText.setEditIsCommit(false);
+      return consumed;
     }
   }
 
