@@ -722,6 +722,9 @@ public class ReactTextInputManager extends BaseViewManager<ReactEditText, Layout
           if (count == 1) {
             key = String.valueOf(s.charAt(start));
           } else {
+            // Otherwise a whole word as been 'commited' from the suggestion bar
+            // or by 'swipe' input in SwiftKey.
+            // We choose to still send an onKeyPress event to be consistent with iOS.
             key = s.substring(start, start + count);
           }
         } else if (before > count) {
@@ -904,16 +907,21 @@ public class ReactTextInputManager extends BaseViewManager<ReactEditText, Layout
     private void dispatchBackspaceEvent() {
       // Capture 'backspaces' where no text is deleted if no text is selected
       // and cursor at beginning of input
-      if (mEditText.getSelectionStart() == 0 && mEditText.getSelectionEnd() == 0 && !mEditText.isContextMenuEdit()) {
+      if (mEditText.getSelectionStart() == 0 && mEditText.getSelectionEnd() == 0
+              && !mEditText.isContextMenuEdit()) {
                 mEventDispatcher.dispatchEvent(
           new ReactTextInputKeyPressEvent(
             mEditText.getId(), ReactTextInputTextWatcher.BACKSPACE_STRING_VALUE));
       }
     }
 
+
+    // Called by SwiftKey when cursor at beginning of input when there is a delete.
+    // Whereas stock Android Keyboard calls {@link InputConnection#deleteSurroundingText}
+    // instead.
     @Override
     public boolean sendKeyEvent(KeyEvent event) {
-      if(event.getAction() == KeyEvent.ACTION_DOWN) {
+      if(event.getAction() == KeyEvent.ACTION_DOWN && event.getKeyCode() == KeyEvent.KEYCODE_DEL) {
         dispatchBackspaceEvent();
       }
       return super.sendKeyEvent(event);
