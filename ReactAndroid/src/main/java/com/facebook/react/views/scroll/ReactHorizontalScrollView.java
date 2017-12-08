@@ -30,6 +30,9 @@ import com.facebook.react.uimanager.ReactClippingViewGroup;
 import com.facebook.react.uimanager.ReactClippingViewGroupHelper;
 import com.facebook.react.views.view.ReactViewBackgroundDrawable;
 
+import java.util.LinkedHashSet;
+import java.util.Set;
+
 /**
  * Similar to {@link ReactScrollView} but only supports horizontal scrolling.
  */
@@ -52,6 +55,7 @@ public class ReactHorizontalScrollView extends HorizontalScrollView implements
   private @Nullable Drawable mEndBackground;
   private int mEndFillColor = Color.TRANSPARENT;
   private @Nullable ReactViewBackgroundDrawable mReactBackgroundDrawable;
+  private Set<ReactOnScrollChangeListener> mScrollChangeListeners = new LinkedHashSet<>();
 
   public ReactHorizontalScrollView(Context context) {
     this(context, null);
@@ -107,9 +111,20 @@ public class ReactHorizontalScrollView extends HorizontalScrollView implements
     scrollTo(getScrollX(), getScrollY());
   }
 
+  public void addScrollListener(ReactOnScrollChangeListener scrollChangeListener) {
+    mScrollChangeListeners.add(scrollChangeListener);
+  }
+
+  public void removeScrollListener(ReactOnScrollChangeListener scrollChangeListener) {
+    mScrollChangeListeners.remove(scrollChangeListener);
+  }
+
   @Override
   protected void onScrollChanged(int x, int y, int oldX, int oldY) {
     super.onScrollChanged(x, y, oldX, oldY);
+    for(ReactOnScrollChangeListener scrollChangeListener : mScrollChangeListeners) {
+      scrollChangeListener.onScrollChange(this, x, y, oldX, oldY);
+    }
 
     if (mOnScrollDispatchHelper.onScrollChanged(x, y)) {
       if (mRemoveClippedSubviews) {

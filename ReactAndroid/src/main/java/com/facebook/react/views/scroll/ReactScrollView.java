@@ -12,6 +12,8 @@ package com.facebook.react.views.scroll;
 import javax.annotation.Nullable;
 
 import java.lang.reflect.Field;
+import java.util.LinkedHashSet;
+import java.util.Set;
 
 import android.graphics.Canvas;
 import android.graphics.Color;
@@ -64,6 +66,7 @@ public class ReactScrollView extends ScrollView implements ReactClippingViewGrou
   private int mEndFillColor = Color.TRANSPARENT;
   private View mContentView;
   private @Nullable ReactViewBackgroundDrawable mReactBackgroundDrawable;
+  private Set<ReactOnScrollChangeListener> mScrollChangeListeners = new LinkedHashSet<>();
 
   public ReactScrollView(ReactContext context) {
     this(context, null);
@@ -152,9 +155,21 @@ public class ReactScrollView extends ScrollView implements ReactClippingViewGrou
     }
   }
 
+  public void addScrollListener(ReactOnScrollChangeListener scrollChangeListener) {
+    mScrollChangeListeners.add(scrollChangeListener);
+  }
+
+  public void removeScrollListener(ReactOnScrollChangeListener scrollChangeListener) {
+    mScrollChangeListeners.remove(scrollChangeListener);
+  }
+
   @Override
   protected void onScrollChanged(int x, int y, int oldX, int oldY) {
     super.onScrollChanged(x, y, oldX, oldY);
+
+    for(ReactOnScrollChangeListener scrollChangeListener : mScrollChangeListeners) {
+      scrollChangeListener.onScrollChange(this, x, y, oldX, oldY);
+    }
 
     if (mOnScrollDispatchHelper.onScrollChanged(x, y)) {
       if (mRemoveClippedSubviews) {
