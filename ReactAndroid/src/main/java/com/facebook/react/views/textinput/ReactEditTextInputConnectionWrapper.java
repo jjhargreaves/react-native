@@ -95,13 +95,15 @@ class ReactEditTextInputConnectionWrapper extends InputConnectionWrapper {
     String key;
     boolean consumed = super.setComposingText(text, newCursorPosition);
     boolean noPreviousSelection = previousSelectionStart == previousSelectionEnd;
-    boolean cursorDidNotMove = mEditText.getSelectionStart() == previousSelectionStart;
-    boolean cursorMovedBackwards = mEditText.getSelectionStart() < previousSelectionStart;
+    int currentSelectionStart = mEditText.getSelectionStart();
+    boolean cursorDidNotMove = currentSelectionStart == previousSelectionStart;
+    boolean cursorMovedBackwards = currentSelectionStart < previousSelectionStart;
+
     if ((noPreviousSelection && cursorMovedBackwards)
-            || !noPreviousSelection && cursorDidNotMove) {
+            || (!noPreviousSelection && cursorDidNotMove) || currentSelectionStart == 0) {
       key = BACKSPACE_KEY_VALUE;
     } else {
-      key = String.valueOf(mEditText.getText().charAt(mEditText.getSelectionStart() - 1));
+      key = String.valueOf(mEditText.getText().charAt(currentSelectionStart - 1));
     }
     dispatchKeyEventOrEnqueue(key);
     return consumed;
