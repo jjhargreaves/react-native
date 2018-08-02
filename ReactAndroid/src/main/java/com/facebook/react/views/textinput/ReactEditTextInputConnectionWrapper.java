@@ -136,6 +136,8 @@ class ReactEditTextInputConnectionWrapper extends InputConnectionWrapper {
         dispatchKeyEvent(BACKSPACE_KEY_VALUE);
       } else if(event.getKeyCode() == KeyEvent.KEYCODE_ENTER) {
         dispatchKeyEvent(ENTER_KEY_VALUE);
+      } else {
+        dispatchKeyEvent(Character.toString(event.getDisplayLabel()));
       }
     }
     return super.sendKeyEvent(event);
