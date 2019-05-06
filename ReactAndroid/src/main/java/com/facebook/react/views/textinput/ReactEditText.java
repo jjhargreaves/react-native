@@ -59,9 +59,6 @@ public class ReactEditText extends EditText {
   // *TextChanged events should be triggered. This is less expensive than removing the text
   // listeners and adding them back again after the text change is completed.
   private boolean mIsSettingTextFromJS;
-  // This component is controlled, so we want it to get focused only when JS ask it to do so.
-  // Whenever android requests focus (which it does for random reasons), it will be ignored.
-  private boolean mIsJSSettingFocus;
   private int mDefaultGravityHorizontal;
   private int mDefaultGravityVertical;
   private int mNativeEventCount;
@@ -98,7 +95,6 @@ public class ReactEditText extends EditText {
     mNativeEventCount = 0;
     mMostRecentEventCount = 0;
     mIsSettingTextFromJS = false;
-    mIsJSSettingFocus = false;
     mBlurOnSubmit = null;
     mDisableFullscreen = false;
     mListeners = null;
@@ -200,9 +196,6 @@ public class ReactEditText extends EditText {
     // such as text selection.
     if (isFocused()) {
       return true;
-    }
-    if (!mIsJSSettingFocus) {
-      return false;
     }
     setFocusableInTouchMode(true);
     boolean focused = super.requestFocus(direction, previouslyFocusedRect);
@@ -344,9 +337,7 @@ public class ReactEditText extends EditText {
 
   // VisibleForTesting from {@link TextInputEventsTestCase}.
   public void requestFocusFromJS() {
-    mIsJSSettingFocus = true;
     requestFocus();
-    mIsJSSettingFocus = false;
   }
 
   /* package */ void clearFocusFromJS() {

@@ -180,6 +180,7 @@ public class ReactWebViewManager extends SimpleViewManager<WebView> {
         if (info != null) {
             // App is installed.
             context.startActivity(intent);
+            return;
         } else {
             String fallbackUrl = intent.getStringExtra("browser_fallback_url");
             intent = new Intent(Intent.ACTION_VIEW, Uri.parse(fallbackUrl));
